@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Conjugaison des verbes français</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="container">
+      <div class="title-row">
+        <h1>Conjugaison des verbes français</h1>
+        <button
+          id="themeBtn"
+          type="button"
+          class="btn btn-theme"
+          title="Changer le thème"
+          aria-label="Changer le thème"
+        >
+          🌓
+        </button>
+      </div>
+      <div class="links">
+        <a id="repoLink" href="#" target="_blank" rel="noopener noreferrer" hidden title="Dépôt du projet"
+          >⎇ Dépôt</a
+        >
+        <a
+          id="issuesLink"
+          href="#"
+          target="_blank"
+          rel="noopener noreferrer"
+          hidden
+          title="Vous avez trouvé une erreur ?"
+          >⚑ Une erreur&nbsp;?</a
+        >
+        <a
+          href="https://fr.wiktionary.org/wiki/Annexe:Prononciation/fran%C3%A7ais"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Guide de prononciation (IPA)</a
+        >
+        <a
+          href="https://francais.lingolia.com/fr/grammaire/les-temps"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Lingolia: Les temps de l’indicatif</a
+        >
+        <a
+          href="http://www.audiofrench.com/verbs/verbes_index.htm"
+          target="_blank"
+          rel="noopener noreferrer"
+          >AudioFrench.com</a
+        >
+      </div>
+      <div class="search">
+        <label class="sr-only" for="q">Rechercher un verbe</label>
+        <div class="search-inner">
+          <div class="search-row">
+            <input
+              id="q"
+              type="search"
+              placeholder="Rechercher un verbe (infinitif ou forme conjuguée)…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button id="searchBtn" type="button" class="btn btn-primary">
+              Rechercher
+            </button>
+            <button
+              id="randomBtn"
+              type="button"
+              class="btn btn-random"
+              title="Ajouter un verbe au hasard"
+            >
+              <span class="btn-icon" aria-hidden="true">🎲</span>
+              Aléatoire
+            </button>
+            <div id="irrRow" class="irr-row" aria-label="Ajouter un verbe aléatoire (irrégulier)">
+              <button id="randYellow" type="button" class="btn btn-irr btn-irr-yellow" title="Ajouter un verbe 🟡">
+                🟡
+              </button>
+              <button id="randOrange" type="button" class="btn btn-irr btn-irr-orange" title="Ajouter un verbe 🟠">
+                🟠
+              </button>
+              <button id="randRed" type="button" class="btn btn-irr btn-irr-red" title="Ajouter un verbe 🔴">
+                🔴
+              </button>
+            </div>
+          </div>
+          <div id="suggestions" class="suggestions" role="listbox"></div>
+        </div>
+        <div id="status" class="status" aria-live="polite"></div>
+      </div>
+      <div id="searchPlaceholder" aria-hidden="true"></div>
+
+      <p class="legend">
+        <strong>Légende :</strong> 🟢 Régulier | 🔴 Très irrégulier | 🟡 Irrégularité moyenne | 🟠
+        Radical irrégulier / changement de radical
+        <br />
+        <small>
+          Astuce : cliquez sur 🔊 (ou sur l’IPA sous l’infinitif) pour écouter. Cliquez
+          sur l’IPA dans les tableaux pour ouvrir le guide. Cliquez sur une forme
+          conjuguée (présent / imparfait / futur) pour écouter via AudioFrench.com (si
+          disponible).
+        </small>
+      </p>
+    </header>
+
+    <main class="container">
+      <div class="table-wrap">
+        <table class="main-table">
+        <colgroup>
+          <col class="col-inf" />
+          <col class="col-part" />
+          <col />
+          <col />
+          <col />
+          <col />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Infinitif</th>
+            <th>Participes</th>
+            <th>Présent</th>
+            <th>Imparfait</th>
+            <th>Passé simple</th>
+            <th>Futur simple</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <footer class="container">
+      <p id="footerMeta" class="footer-meta"></p>
+    </footer>
+
+    <button id="toTop" type="button" class="to-top" title="Revenir en haut">
+      ↑ Haut
+    </button>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

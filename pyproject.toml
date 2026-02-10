@@ -1,0 +1,17 @@
+[project]
+name = "conjugateur-fr"
+version = "0.1.0"
+description = "Table de conjugaison française (site statique interactif)"
+readme = "README.md"
+requires-python = ">=3.14"
+authors = [{ name = "Carlson Büth" }]
+keywords = ["french", "conjugation", "ipa", "verbs", "wiktionary"]
+dependencies = [
+    "pandas>=3.0.0",
+    "setuptools>=82.0.0",
+]
+
+[project.urls]
+Repository = "https://codeberg.org/cbueth/conjugateur-fr"
+Issues = "https://codeberg.org/cbueth/conjugateur-fr/issues"
+Website = "https://cbueth.codeberg.page/conjugateur-fr/  # TODO: replace when published"
