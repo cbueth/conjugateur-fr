@@ -29,6 +29,29 @@ function normalizeFrench(text) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+const audiofrenchVerbs = new Set();
+
+async function loadAudioFrenchIndex() {
+  try {
+    const afRes = await fetch("./data/audiofrench_index.json", { cache: "no-store" });
+    if (afRes.ok) {
+      const afData = await afRes.json();
+      for (const key of afData) {
+        audiofrenchVerbs.add(key);
+      }
+      // console.log(`AudioFrench index: ${audiofrenchVerbs.size} verbs with audio`);
+    }
+  } catch (e) {
+    console.warn("Failed to load AudioFrench index:", e);
+  }
+}
+
+function hasAudioFrenchAudio(infinitive) {
+  if (!audiofrenchVerbs.size) return false;
+  const normalized = normalizeFrench(infinitive);
+  return audiofrenchVerbs.has(normalized);
+}
+
 function verbGroup(inf) {
   if (inf.endsWith("er")) return "er";
   if (inf.endsWith("ir")) return "ir";
@@ -513,9 +536,11 @@ function buildTenseCell(v, tenseKey) {
 
     if (tenseKey !== "ps") {
       const url = makeAudioFrenchUrl(v.w, i, form);
-      colored = `<a class="audiofrench-link" href="${escapeHtml(
-        url
-      )}" data-audio-url="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Écouter (AudioFrench)">${colored}</a>`;
+      if (hasAudioFrenchAudio(v.w)) {
+        colored = `<a class="audiofrench-link" href="${escapeHtml(
+          url
+        )}" data-audio-url="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Écouter (AudioFrench)">${colored}</a>`;
+      }
     }
 
     const ipaEnding = extractIpaEnding(forms[i].ipa || "");
@@ -532,7 +557,7 @@ function buildTenseCell(v, tenseKey) {
     );
 
     const boxAudioAttr =
-      tenseKey !== "ps"
+      tenseKey !== "ps" && hasAudioFrenchAudio(v.w)
         ? ` data-audio-url="${escapeHtml(makeAudioFrenchUrl(v.w, i, form))}" title="Écouter (AudioFrench)"`
         : "";
 
@@ -1022,6 +1047,12 @@ async function main() {
     status.textContent = "Verbe 'avoir' disponible (mode limité)";
     return;
   }
+
+  if (manifest.version !== 3) {
+    console.warn("Manifest version mismatch. Expected v3, got:", manifest.version);
+  }
+
+  await loadAudioFrenchIndex();
 
   const meta = manifest.meta || {};
   const MAX_ROWS = 200;
