@@ -8,7 +8,7 @@ resolution-markers = [
 ]
 
 [[package]]
-name = "french-conjugations"
+name = "conjugateur-fr"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

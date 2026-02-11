@@ -14,8 +14,6 @@ wheels/
 
 # Generated data / outputs
 fr-extract.jsonl.gz
-docs/data/manifest.json
-docs/data/chunks/
-docs/data/verbs.json
-docs/data/verbs.json.gz
+docs/data/*
 french_conjugations.html
+lexique.tsv
