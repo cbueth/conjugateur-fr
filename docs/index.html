@@ -21,18 +21,6 @@
         </button>
       </div>
       <div class="links">
-        <a id="repoLink" href="#" target="_blank" rel="noopener noreferrer" hidden title="Dépôt du projet"
-          >⎇ Dépôt</a
-        >
-        <a
-          id="issuesLink"
-          href="#"
-          target="_blank"
-          rel="noopener noreferrer"
-          hidden
-          title="Vous avez trouvé une erreur ?"
-          >⚑ Une erreur&nbsp;?</a
-        >
         <a
           href="https://fr.wiktionary.org/wiki/Annexe:Prononciation/fran%C3%A7ais"
           target="_blank"
@@ -43,7 +31,7 @@
           href="https://francais.lingolia.com/fr/grammaire/les-temps"
           target="_blank"
           rel="noopener noreferrer"
-          >Lingolia: Les temps de l’indicatif</a
+          >Les temps de l’indicatif</a
         >
         <a
           href="http://www.audiofrench.com/verbs/verbes_index.htm"
@@ -51,6 +39,23 @@
           rel="noopener noreferrer"
           >AudioFrench.com</a
         >
+        <span
+          class="links-right"
+          style="margin-left: auto; display: flex; gap: 10px 16px; align-items: center"
+        >
+          <a
+            id="issuesLink"
+            href="#"
+            target="_blank"
+            rel="noopener noreferrer"
+            hidden
+            title="Vous avez trouvé une erreur ?"
+            >⚑ Une erreur&nbsp;?</a
+          >
+          <a id="repoLink" href="#" target="_blank" rel="noopener noreferrer" hidden title="Dépôt du projet"
+            >⎇ Dépôt</a
+          >
+        </span>
       </div>
       <div class="search">
         <label class="sr-only" for="q">Rechercher un verbe</label>
@@ -76,14 +81,18 @@
               Aléatoire
             </button>
             <div id="irrRow" class="irr-row" aria-label="Ajouter un verbe aléatoire (irrégulier)">
-              <button id="randYellow" type="button" class="btn btn-irr btn-irr-yellow" title="Ajouter un verbe 🟡">
+              <button id="randYellow" type="button" class="btn btn-irr btn-irr-yellow" title="Ajouter un verbe aléatoire 🟡 (irrégularité moyenne)">
                 🟡
               </button>
-              <button id="randOrange" type="button" class="btn btn-irr btn-irr-orange" title="Ajouter un verbe 🟠">
+              <button id="randOrange" type="button" class="btn btn-irr btn-irr-orange" title="Ajouter un verbe aléatoire 🟠 (radical irrégulier)">
                 🟠
               </button>
-              <button id="randRed" type="button" class="btn btn-irr btn-irr-red" title="Ajouter un verbe 🔴">
+              <button id="randRed" type="button" class="btn btn-irr btn-irr-red" title="Ajouter un verbe aléatoire 🔴 (très irrégulier)">
                 🔴
+              </button>
+              <!-- Mobile legend button -->
+              <button id="legendToggle" type="button" class="btn btn-irr legend-toggle-mobile" aria-expanded="false" aria-controls="legendOverlay">
+                Légende
               </button>
             </div>
           </div>
@@ -93,17 +102,47 @@
       </div>
       <div id="searchPlaceholder" aria-hidden="true"></div>
 
-      <p class="legend">
-        <strong>Légende :</strong> 🟢 Régulier | 🔴 Très irrégulier | 🟡 Irrégularité moyenne | 🟠
-        Radical irrégulier / changement de radical
-        <br />
-        <small>
-          Astuce : cliquez sur 🔊 (ou sur l’IPA sous l’infinitif) pour écouter. Cliquez
-          sur l’IPA dans les tableaux pour ouvrir le guide. Cliquez sur une forme
-          conjuguée (présent / imparfait / futur) pour écouter via AudioFrench.com (si
-          disponible).
-        </small>
-      </p>
+      <div class="legend-wrapper">
+        <!-- Desktop: always visible -->
+        <div class="legend-desktop">
+          <p class="legend">
+            <strong>Légende :</strong> 🟢 Régulier | 🔴 Très irrégulier | 🟡 Irrégularité moyenne | 🟠
+            Radical irrégulier / changement de radical
+            <br />
+            <small>
+              Astuce : cliquez sur 🔊 (ou sur l'IPA sous l'infinitif) pour écouter. Cliquez
+              sur l'IPA dans les tableaux pour ouvrir le guide. Cliquez sur une forme
+              conjuguée (présent / imparfait / futur / participe) pour écouter via AudioFrench.com (si
+              disponible).
+            </small>
+          </p>
+        </div>
+      </div>
+      
+      <!-- Mobile overlay (moved outside wrapper) -->
+      <div id="legendOverlay" class="legend-overlay" hidden>
+        <div class="legend-overlay-backdrop"></div>
+        <div class="legend-overlay-content">
+          <button id="legendClose" type="button" class="legend-close" aria-label="Fermer">×</button>
+          <div class="legend-overlay-body">
+            <p class="legend">
+              <strong>Légende :</strong><br/>
+              🟢 Régulier<br/>
+              🔴 Très irrégulier<br/>
+              🟡 Irrégularité moyenne<br/>
+              🟠 Radical irrégulier
+            </p>
+            <hr/>
+            <p class="legend-random">
+              <strong>🎲 + 🟡🟠🔴 :</strong> Ajoute un verbe aléatoire du type sélectionné
+            </p>
+            <hr/>
+            <p class="legend-hint">
+              <strong>💡 Astuce :</strong> Cliquez sur 🔊 pour écouter l'infinitif. Cliquez sur une forme conjuguée pour écouter via AudioFrench.com.
+            </p>
+          </div>
+        </div>
+      </div>
     </header>
 
     <main class="container">

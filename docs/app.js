@@ -24,7 +24,7 @@ function normalizeFrench(text) {
   return text
     .toLowerCase()
     .replaceAll("œ", "oe")
-    .replaceAll("’", "'")
+    .replaceAll("'", "'")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 }
@@ -466,7 +466,7 @@ function buildParticiplesCell(v) {
   const pastIpaFull = extractIpaFull(pastIpa);
 
   const p = pres
-    ? `<div class="part-formline"><span class="part-form" style="font-weight:700">${colored(
+    ? `<div class="part-formline"><span class="part-form" data-form="${escapeHtml(pres)}" style="font-weight:700">${colored(
         pres
       )}</span></div>${
         presIpaFull
@@ -478,7 +478,7 @@ function buildParticiplesCell(v) {
     : "";
 
   const q = past
-    ? `<div class="part-formline"><span class="part-form" style="font-weight:700">${colored(
+    ? `<div class="part-formline"><span class="part-form" data-form="${escapeHtml(past)}" style="font-weight:700">${colored(
         past
       )}</span></div>${
         pastIpaFull
@@ -984,12 +984,15 @@ async function main() {
   const suggestionsEl = document.getElementById("suggestions");
   const searchEl = document.querySelector(".search");
   const searchPlaceholder = document.getElementById("searchPlaceholder");
-  const legendEl = document.querySelector(".legend");
+  const legendEl = document.querySelector(".legend-container");
   const repoLinkEl = document.getElementById("repoLink");
   const issuesLinkEl = document.getElementById("issuesLink");
   const footerMetaEl = document.getElementById("footerMeta");
+  const legendToggle = document.getElementById("legendToggle");
+  const legendOverlay = document.getElementById("legendOverlay");
+  const legendClose = document.getElementById("legendClose");
 
-  // Theme toggle: auto -> light -> dark (must be ready before data loads)
+  // Theme toggle
   const themeModes = ["auto", "light", "dark"];
   function getTheme() {
     return localStorage.getItem("theme") || "auto";
@@ -1017,6 +1020,91 @@ async function main() {
     applyTheme(next);
   });
 
+  // Legend toggle (mobile overlay)
+  if (legendToggle && legendOverlay) {
+    const openOverlay = () => {
+      legendToggle.setAttribute("aria-expanded", "true");
+      legendOverlay.hidden = false;
+      // Prevent body scroll
+      document.body.style.overflow = 'hidden';
+    };
+    
+    const closeOverlay = () => {
+      legendToggle.setAttribute("aria-expanded", "false");
+      legendOverlay.hidden = true;
+      document.body.style.overflow = '';
+    };
+    
+    legendToggle.addEventListener("click", openOverlay);
+    
+    if (legendClose) {
+      legendClose.addEventListener("click", closeOverlay);
+    }
+    
+    // Close on backdrop click
+    legendOverlay.querySelector('.legend-overlay-backdrop')?.addEventListener('click', closeOverlay);
+    
+    // Close on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !legendOverlay.hidden) {
+        closeOverlay();
+      }
+    });
+  }
+
+   // Hardcoded "avoir" verb for instant display
+  const AVOIR_VERB = {
+    "w": "avoir",
+    "ipa": "a.vwaʁ",
+    "audio": "https://upload.wikimedia.org/wikipedia/commons/6/6a/Fr-avoir.ogg",
+    "irr": "🔴",
+    "alt": false,
+    "part": {
+      "pres": {"f": "ayant", "ipa": "e.jɑ̃"},
+      "past": {"f": "eu", "ipa": "y"}
+    },
+    "t": {
+      "pr": [
+        {"f": "ai", "ipa": "‿e"},
+        {"f": "as", "ipa": "a"},
+        {"f": "a", "ipa": "‿a"},
+        {"f": "avons", "ipa": "‿a.vɔ̃"},
+        {"f": "avez", "ipa": "‿a.ve"},
+        {"f": "ont", "ipa": "‿ɔ̃"}
+      ],
+      "imp": [
+        {"f": "avais", "ipa": "‿a.vɛ"},
+        {"f": "avais", "ipa": "a.vɛ"},
+        {"f": "avait", "ipa": "‿a.vɛ"},
+        {"f": "avions", "ipa": "‿a.vjɔ̃"},
+        {"f": "aviez", "ipa": "‿a.vje"},
+        {"f": "avaient", "ipa": "‿a.vɛ"}
+      ],
+      "ps": [
+        {"f": "eus", "ipa": "‿y"},
+        {"f": "eus", "ipa": "y"},
+        {"f": "eut", "ipa": "‿y"},
+        {"f": "eûmes", "ipa": "‿y.m"},
+        {"f": "eûtes", "ipa": "‿y.t"},
+        {"f": "eurent", "ipa": "‿y.ʁ"}
+      ],
+      "fut": [
+        {"f": "aurai", "ipa": "‿o.ʁe"},
+        {"f": "auras", "ipa": "o.ʁa"},
+        {"f": "aura", "ipa": "‿o.ʁa"},
+        {"f": "aurons", "ipa": "‿o.ʁɔ̃"},
+        {"f": "aurez", "ipa": "‿o.ʁe"},
+        {"f": "auront", "ipa": "‿o.ʁɔ̃"}
+      ]
+    }
+  };
+
+  // Display "avoir" immediately - no waiting for data
+  const byWord = new Map();
+  const entries = [];
+  const loadedCount = { value: 0 };
+  const byIrr = { "🟡": [], "🟠": [], "🔴": [] };
+  
   // Track load start time for performance-based decisions
   let loadStartTime = performance.now();
   
@@ -1036,6 +1124,10 @@ async function main() {
   byIrr["🔴"].push("avoir");
   loadedCount.value++;
   
+  adjustMobileParticiplesLayout();
+  adjustMobileTenseGridLayout();
+  adjustDesktopTenseIpaLayout();
+
   status.textContent = "Chargement des verbes…";
 
   let manifest = null;
@@ -1055,6 +1147,27 @@ async function main() {
   await loadAudioFrenchIndex();
 
   const meta = manifest.meta || {};
+  const repoUrl = meta.repo_url || "";
+  const issuesUrl = meta.issues_url || "";
+  if (repoLinkEl) {
+    if (repoUrl) {
+      repoLinkEl.href = repoUrl;
+      repoLinkEl.hidden = false;
+    } else {
+      repoLinkEl.hidden = true;
+    }
+  }
+  if (issuesLinkEl) {
+    if (issuesUrl) {
+      issuesLinkEl.href = issuesUrl;
+      issuesLinkEl.hidden = false;
+    } else {
+      issuesLinkEl.hidden = true;
+    }
+  }
+  
+  const INITIAL_TOTAL_ROWS = 8;
+  const TARGET_TOTAL_ROWS = 10;
   const MAX_ROWS = 200;
 
   const chunkManager = new ChunkManager();
@@ -1115,14 +1228,6 @@ async function main() {
     status.textContent = "Erreur de chargement des verbes communs.";
     return;
   }
-  if (issuesLinkEl) {
-    if (issuesUrl) {
-      issuesLinkEl.href = issuesUrl;
-      issuesLinkEl.hidden = false;
-    } else {
-      issuesLinkEl.hidden = true;
-    }
-  }
 
   if (footerMetaEl) {
     const nowYear = new Date().getFullYear();
@@ -1142,6 +1247,8 @@ async function main() {
         `<a href="${escapeHtml(repoUrl)}" target="_blank" rel="noopener noreferrer">Code source</a>`
       );
     }
+    // Attribution
+    lines.push(`<span class="footer-line attribution">Données : <a href="https://kaikki.org/dictionary/rawdata.html" target="_blank" rel="noopener noreferrer">Wiktextract</a> / <a href="https://fr.wiktionary.org" target="_blank" rel="noopener noreferrer">Wiktionnaire</a> — Fréquences : <a href="http://www.lexique.org" target="_blank" rel="noopener noreferrer">Lexique</a> — Audio : <a href="https://fr.wiktionary.org" target="_blank" rel="noopener noreferrer">Wiktionnaire</a> (infinitifs) / <a href="http://www.audiofrench.com" target="_blank" rel="noopener noreferrer">AudioFrench.com</a> © 2004-2017 (formes conjuguées)</span>`);
     footerMetaEl.innerHTML = lines.map((t) => `<span class="footer-line">${t}</span>`).join("");
   }
 
@@ -1153,18 +1260,16 @@ async function main() {
   setMobileLabels();
   portrait.addEventListener?.("change", setMobileLabels);
 
-  // Floating search bar: appears only once the legend reaches the top.
+  // Floating search bar
   let floatingOffTimer = null;
   let floatingLocked = false;
   let floatingState = false;
-  const SHOW_AT = 6; // px
-  const HIDE_AT = 40; // px (hysteresis to avoid flicker)
+  const SHOW_AT = 6;
+  const HIDE_AT = 40;
   function topOcclusionPx() {
     if (!searchEl) return 0;
     const rect = searchEl.getBoundingClientRect();
     const isFixed = searchEl.classList.contains("floating") && searchEl.classList.contains("show");
-    // When fixed, it visually occludes content; when in-flow near top it still occupies space,
-    // but we want focused items to land a bit below it.
     return (isFixed ? rect.height + 18 : rect.height + 12) || 0;
   }
   function scrollElementBelowSearch(el) {
@@ -1253,10 +1358,14 @@ async function main() {
     }
     if (focusForm && portrait.matches) {
       const row = rows.querySelector(`tr[data-word="${CSS.escape(word)}"]`);
-      const el = row?.querySelector(`.tense-item[data-form="${CSS.escape(focusForm)}"]`);
+      // Check for conjugated form (tense) first, then participle
+      let el = row?.querySelector(`.tense-item[data-form="${CSS.escape(focusForm)}"]`);
+      if (!el) {
+        // Check for participle form
+        el = row?.querySelector(`.part-form[data-form="${CSS.escape(focusForm)}"]`);
+      }
       if (el) {
         el.classList.add("picked");
-        // Ensure the focused form lands just below the search bar (floating or in-flow).
         scrollElementBelowSearch(el);
         el.focus({ preventScroll: true });
         window.setTimeout(() => el.classList.remove("picked"), 900);
@@ -1302,10 +1411,9 @@ async function main() {
     if (didInitialSeed) return;
     didInitialSeed = true;
     const shown = shownWords();
-    for (const w of ["avoir", "faire"]) {
+    for (const w of ["faire"]) {
       if (byWord.has(w) && !shown.has(w)) addRowToBottom(w);
     }
-    // Add a few random verbs to start with (once).
     while (shownWords().size < INITIAL_TOTAL_ROWS && entries.length) {
       maybeAddRandomRow();
     }
@@ -1401,7 +1509,6 @@ async function main() {
     if (!v) return;
     const isFloating = !!searchEl?.classList.contains("floating");
     const isShowing = !!searchEl?.classList.contains("show");
-    // At top (non-floating UI), do not auto-scroll/focus.
     addRowToTop(word, { focusRow: isFloating && isShowing, focusForm });
     q.value = "";
     currentSuggestions = [];
