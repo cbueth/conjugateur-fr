@@ -1,4 +1,8 @@
-## Conjugateur FR (table + IPA)
+# Conjugateur FR (table + IPA)
+
+[![Visit Website](https://img.shields.io/badge/Website-cbueth.de%2Fconjugateur--fr-blue?style=for-the-badge)](https://cbueth.de/conjugateur-fr/)
+![Français](https://img.shields.io/badge/Français-French%20Conjugation-blue?style=flat-square)
+![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)
 
 Ce repo génère :
 
@@ -14,7 +18,7 @@ Ce repo génère :
 ### Liens (placeholders)
 
 - Dépôt Codeberg : `https://codeberg.org/cbueth/conjugateur-fr`
-- Pages Codeberg : `https://cbueth.codeberg.page/conjugateur-fr/` (à ajuster si besoin)
+- Pages : `https://cbueth.de/conjugateur-fr/`
 - Issues : `https://codeberg.org/cbueth/conjugateur-fr/issues`
 
 ### Build (site Pages)

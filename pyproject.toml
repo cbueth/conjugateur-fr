@@ -14,4 +14,4 @@ dependencies = [
 [project.urls]
 Repository = "https://codeberg.org/cbueth/conjugateur-fr"
 Issues = "https://codeberg.org/cbueth/conjugateur-fr/issues"
-Website = "https://cbueth.codeberg.page/conjugateur-fr/  # TODO: replace when published"
+Website = "https://cbueth.de/conjugateur-fr/"
