@@ -801,6 +801,148 @@ function computeSuggestions(entries, query, limit = 10) {
   return suggestions;
 }
 
+// Connection detection - considers slow-2g and 2g as slow connections
+function shouldAutoLoad() {
+  const conn = navigator.connection;
+  if (!conn) {
+    // If API not available, default to loading all (better UX)
+    return true;
+  }
+  
+  // Don't auto-load on slow connections or when save data is enabled
+  const slowTypes = ['slow-2g', '2g'];
+  const isSlow = slowTypes.includes(conn.effectiveType);
+  
+  if (isSlow || conn.saveData) {
+    return false;
+  }
+  
+  // 3g is borderline - don't auto-load to be safe
+  if (conn.effectiveType === '3g') {
+    return false;
+  }
+  
+  // 4g or unknown - safe to auto-load
+  return true;
+}
+
+function getConnectionLabel() {
+  const conn = navigator.connection;
+  if (!conn) return 'inconnue';
+  if (conn.saveData) return 'économie de données';
+  if (conn.effectiveType) return conn.effectiveType;
+  return 'inconnue';
+}
+
+// Lazy loading chunk manager
+class ChunkManager {
+  constructor() {
+    this.loadedChunks = new Set();
+    this.loadingChunks = new Set();
+    this.letterChunkMap = new Map();
+    this.totalSizeMb = 0;
+    this.onProgress = null;
+    this.onComplete = null;
+  }
+
+  setManifest(manifest) {
+    this.manifest = manifest;
+    if (manifest.letter_chunks) {
+      this.totalSizeMb = manifest.letter_chunks.total_size_mb || 0;
+      for (const file of manifest.letter_chunks.files || []) {
+        const letter = file.replace('letter_chunks/', '').replace('.json.gz', '');
+        this.letterChunkMap.set(letter, file);
+      }
+    }
+  }
+
+  getLetterChunkPath(letter) {
+    return this.letterChunkMap.get(letter.toLowerCase());
+  }
+
+  isChunkLoaded(letter) {
+    return this.loadedChunks.has(letter.toLowerCase());
+  }
+
+  isChunkLoading(letter) {
+    return this.loadingChunks.has(letter.toLowerCase());
+  }
+
+  getLoadedCount() {
+    return this.loadedChunks.size;
+  }
+
+  getTotalCount() {
+    return this.letterChunkMap.size;
+  }
+
+  getRemainingSizeMb() {
+    const loadedCount = this.loadedChunks.size;
+    const totalCount = this.letterChunkMap.size;
+    if (totalCount === 0) return 0;
+    const remainingRatio = (totalCount - loadedCount) / totalCount;
+    return Math.round(this.totalSizeMb * remainingRatio * 10) / 10;
+  }
+
+  async loadChunk(letter, addEntryFn) {
+    const lowerLetter = letter.toLowerCase();
+    
+    if (this.loadedChunks.has(lowerLetter) || this.loadingChunks.has(lowerLetter)) {
+      return;
+    }
+
+    const chunkPath = this.letterChunkMap.get(lowerLetter);
+    if (!chunkPath) {
+      return;
+    }
+
+    this.loadingChunks.add(lowerLetter);
+
+    try {
+      const chunkData = await fetchChunk(chunkPath);
+      const verbs = chunkData.verbs || [];
+      
+      for (const v of verbs) {
+        addEntryFn(v);
+      }
+      
+      this.loadedChunks.add(lowerLetter);
+      
+      if (this.onProgress) {
+        this.onProgress(lowerLetter, verbs.length);
+      }
+    } catch (e) {
+      console.warn(`Failed to load chunk ${chunkPath}:`, e);
+    } finally {
+      this.loadingChunks.delete(lowerLetter);
+    }
+  }
+
+  async loadAllChunks(addEntryFn) {
+    const letters = Array.from(this.letterChunkMap.keys());
+    
+    for (const letter of letters) {
+      if (!this.loadedChunks.has(letter)) {
+        await this.loadChunk(letter, addEntryFn);
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+    }
+
+    if (this.onComplete) {
+      this.onComplete();
+    }
+  }
+}
+
+async function fetchChunk(relPath) {
+  if (typeof DecompressionStream === "undefined") throw new Error("DecompressionStream required");
+  const res = await fetch(`./data/${relPath}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const stream = res.body.pipeThrough(new DecompressionStream("gzip"));
+  const text = await new Response(stream).text();
+  return JSON.parse(text);
+}
+
 async function main() {
   setupAudioClickHandler();
 
@@ -850,28 +992,47 @@ async function main() {
     applyTheme(next);
   });
 
+  // Track load start time for performance-based decisions
+  let loadStartTime = performance.now();
+  
+  rows.insertAdjacentHTML("beforeend", buildRow(AVOIR_VERB));
+  
+  // Add "avoir" to data structures
+  const avoirForms = collectAllForms(AVOIR_VERB);
+  const avoirFormsNorm = avoirForms.map((x) => normalizeFrench(x));
+  byWord.set("avoir", AVOIR_VERB);
+  entries.push({
+    w: "avoir",
+    norm: normalizeFrench("avoir"),
+    forms: avoirForms,
+    formsNorm: avoirFormsNorm,
+    formsBlob: avoirFormsNorm.join(" "),
+  });
+  byIrr["🔴"].push("avoir");
+  loadedCount.value++;
+  
   status.textContent = "Chargement des verbes…";
 
   let manifest = null;
-  let data = null;
   try {
     const res = await fetch("./data/manifest.json", { cache: "no-store" });
     if (res.ok) manifest = await res.json();
     if (!manifest) throw new Error("no manifest");
   } catch (e) {
-    status.textContent =
-      "Données manquantes. Lancez: make build-pages-full (ou build-pages-limit).";
+    status.textContent = "Verbe 'avoir' disponible (mode limité)";
     return;
   }
 
   const meta = manifest.meta || {};
-  const byWord = new Map();
-  const entries = [];
-  let loadedCount = 0;
-  const INITIAL_TOTAL_ROWS = 8; // total rows to show quickly (including avoir/faire)
-  const TARGET_TOTAL_ROWS = 10; // cap target total rows after all chunks
   const MAX_ROWS = 200;
-  const byIrr = { "🟡": [], "🟠": [], "🔴": [] };
+
+  const chunkManager = new ChunkManager();
+  chunkManager.setManifest(manifest);
+
+  // Determine loading strategy based on connection
+  const INITIAL_LOAD_TIMEOUT = 2000; // 2 seconds threshold
+  let autoLoadEnabled = shouldAutoLoad();
+  let isSlowMode = !autoLoadEnabled;
 
   function addEntry(v) {
     if (!v || !v.w || byWord.has(v.w)) return;
@@ -887,22 +1048,41 @@ async function main() {
       formsNorm,
       formsBlob: formsNorm.join(" "),
     });
-    loadedCount++;
+    loadedCount.value++;
   }
 
-  const totalCount = Number(manifest.count || 0);
-  status.textContent = `0 / ${totalCount.toLocaleString("fr-FR")} verbes chargés…`;
-
-  // Repo / issues links + footer meta
-  const repoUrl = meta.repo_url || "";
-  const issuesUrl = meta.issues_url || "";
-  if (repoLinkEl) {
-    if (repoUrl) {
-      repoLinkEl.href = repoUrl;
-      repoLinkEl.hidden = false;
-    } else {
-      repoLinkEl.hidden = true;
+  // Load both most_common and common verbs at startup
+  try {
+    // Load most common verbs
+    if (manifest.most_common_verbs) {
+      const mostCommonRes = await fetch(`./data/${manifest.most_common_verbs.file}`, { cache: "no-store" });
+      if (mostCommonRes.ok) {
+        const stream = mostCommonRes.body.pipeThrough(new DecompressionStream("gzip"));
+        const text = await new Response(stream).text();
+        const data = JSON.parse(text);
+        for (const v of data.verbs || []) addEntry(v);
+      }
     }
+    
+    // Load common verbs
+    if (manifest.common_verbs) {
+      const commonRes = await fetch(`./data/${manifest.common_verbs.file}`, { cache: "no-store" });
+      if (commonRes.ok) {
+        const stream = commonRes.body.pipeThrough(new DecompressionStream("gzip"));
+        const text = await new Response(stream).text();
+        const data = JSON.parse(text);
+        for (const v of data.verbs || []) addEntry(v);
+      }
+    }
+    
+    if (!isSlowMode) {
+      status.textContent = `${loadedCount.value.toLocaleString("fr-FR")} verbes chargés`;
+    } else {
+      status.textContent = `${(manifest.total_verbs || 0).toLocaleString("fr-FR")} verbes recherchables`;
+    }
+  } catch (e) {
+    status.textContent = "Erreur de chargement des verbes communs.";
+    return;
   }
   if (issuesLinkEl) {
     if (issuesUrl) {
@@ -1110,58 +1290,53 @@ async function main() {
   randOrangeBtn?.addEventListener("click", () => pickRandomFromBucket("🟠"));
   randRedBtn?.addEventListener("click", () => pickRandomFromBucket("🔴"));
 
-  function idleTick() {
-    return new Promise((resolve) => {
-      if (typeof requestIdleCallback !== "undefined") requestIdleCallback(() => resolve(), { timeout: 120 });
-      else setTimeout(resolve, 0);
+  seedInitialRows();
+
+  // Setup chunk manager callbacks
+  chunkManager.onProgress = (letter, count) => {
+    if (!isSlowMode) {
+      // Normal mode: show loading progress
+      status.textContent = `${loadedCount.value.toLocaleString("fr-FR")} verbes chargés`;
+    }
+    // In slow mode, don't update status (keep showing searchable count)
+    adjustMobileParticiplesLayout();
+    adjustMobileTenseGridLayout();
+    adjustDesktopTenseIpaLayout();
+  };
+
+  chunkManager.onComplete = () => {
+    if (!isSlowMode) {
+      status.textContent = `${loadedCount.value.toLocaleString("fr-FR")} verbes chargés (complet)`;
+    } else {
+      // Slow mode: show total searchable
+      const totalSearchable = manifest.total_verbs || 0;
+      status.textContent = `${totalSearchable.toLocaleString("fr-FR")} verbes recherchables`;
+    }
+  };
+
+  // Check initial load time and fall back to slow mode if too slow
+  async function checkInitialLoadTime() {
+    const loadTime = performance.now() - loadStartTime;
+    if (loadTime > INITIAL_LOAD_TIMEOUT && autoLoadEnabled) {
+      // Connection says fast but download was slow - switch to slow mode
+      autoLoadEnabled = false;
+      isSlowMode = true;
+      // Update status to show searchable count
+      const totalSearchable = manifest.total_verbs || 0;
+      status.textContent = `${totalSearchable.toLocaleString("fr-FR")} verbes recherchables`;
+    }
+  }
+
+  // Auto-load for fast connections
+  if (autoLoadEnabled) {
+    chunkManager.loadAllChunks(addEntry).then(() => {
+      checkInitialLoadTime();
     });
+  } else {
+    // Slow mode: show initial searchable count
+    const totalSearchable = manifest.total_verbs || 0;
+    status.textContent = `${totalSearchable.toLocaleString("fr-FR")} verbes recherchables`;
   }
-
-  async function loadChunk(relPath) {
-    if (typeof DecompressionStream === "undefined") throw new Error("DecompressionStream required");
-    const res = await fetch(`./data/${relPath}`, { cache: "no-store" });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const stream = res.body.pipeThrough(new DecompressionStream("gzip"));
-    const text = await new Response(stream).text();
-    return JSON.parse(text);
-  }
-
-  const chunks = manifest.chunks || [];
-  const plannedAdds = Math.max(0, Math.min(TARGET_TOTAL_ROWS, 50) - INITIAL_TOTAL_ROWS);
-  const addSchedule = new Set();
-  if (plannedAdds > 0 && chunks.length) {
-    for (let i = 1; i <= plannedAdds; i++) {
-      addSchedule.add(Math.floor((i * chunks.length) / (plannedAdds + 1)));
-    }
-  }
-
-  async function loadAllChunks() {
-    for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
-      const chunk = chunks[chunkIndex];
-      try {
-        const chunkData = await loadChunk(chunk);
-        const verbs = chunkData.verbs || [];
-        for (const v of verbs) addEntry(v);
-        status.textContent = `${loadedCount.toLocaleString("fr-FR")} / ${totalCount.toLocaleString(
-          "fr-FR"
-        )} verbes chargés…`;
-        seedInitialRows();
-        if (didInitialSeed && addSchedule.has(chunkIndex) && shownWords().size < TARGET_TOTAL_ROWS) {
-          maybeAddRandomRow(verbs.map((v) => v.w));
-        }
-        adjustMobileParticiplesLayout();
-        adjustMobileTenseGridLayout();
-        adjustDesktopTenseIpaLayout();
-      } catch (e) {
-        console.warn("Chunk load failed:", chunk, e);
-      }
-      await idleTick();
-    }
-    status.textContent = `${loadedCount.toLocaleString("fr-FR")} verbes chargés.`;
-  }
-
-  // Low-priority progressive load to keep UI responsive (theme toggle etc.).
-  loadAllChunks();
 
   let selectedIndex = -1;
   let currentSuggestions = [];
@@ -1203,8 +1378,23 @@ async function main() {
     renderSuggestions();
   }
 
-  function updateSuggestions() {
-    currentSuggestions = computeSuggestions(entries, q.value, 100);
+  async function updateSuggestions() {
+    const query = q.value.trim();
+    const queryNorm = normalizeFrench(query);
+    
+    // Load letter chunks on demand (1+ letters)
+    if (queryNorm.length >= 1) {
+      const firstLetter = queryNorm[0];
+      if (!chunkManager.isChunkLoaded(firstLetter) && !chunkManager.isChunkLoading(firstLetter)) {
+        chunkManager.loadChunk(firstLetter, addEntry).then(() => {
+          currentSuggestions = computeSuggestions(entries, query, 100);
+          selectedIndex = currentSuggestions.length ? 0 : -1;
+          renderSuggestions();
+        });
+      }
+    }
+    
+    currentSuggestions = computeSuggestions(entries, query, 100);
     selectedIndex = currentSuggestions.length ? 0 : -1;
     renderSuggestions();
   }
