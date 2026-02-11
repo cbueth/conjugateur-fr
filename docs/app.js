@@ -1099,54 +1099,57 @@ async function main() {
     }
   };
 
-  // Display "avoir" immediately - no waiting for data
-  const byWord = new Map();
-  const entries = [];
-  const loadedCount = { value: 0 };
-  const byIrr = { "🟡": [], "🟠": [], "🔴": [] };
-  
-  // Track load start time for performance-based decisions
-  let loadStartTime = performance.now();
-  
-  rows.insertAdjacentHTML("beforeend", buildRow(AVOIR_VERB));
-  
-  // Add "avoir" to data structures
-  const avoirForms = collectAllForms(AVOIR_VERB);
-  const avoirFormsNorm = avoirForms.map((x) => normalizeFrench(x));
-  byWord.set("avoir", AVOIR_VERB);
-  entries.push({
-    w: "avoir",
-    norm: normalizeFrench("avoir"),
-    forms: avoirForms,
-    formsNorm: avoirFormsNorm,
-    formsBlob: avoirFormsNorm.join(" "),
-  });
-  byIrr["🔴"].push("avoir");
-  loadedCount.value++;
-  
-  adjustMobileParticiplesLayout();
-  adjustMobileTenseGridLayout();
-  adjustDesktopTenseIpaLayout();
+   // Load manifest and audio index
+   status.textContent = "Chargement…";
 
-  status.textContent = "Chargement des verbes…";
+   let manifest = null;
+   try {
+     const res = await fetch("./data/manifest.json", { cache: "no-store" });
+     if (res.ok) manifest = await res.json();
+     if (!manifest) throw new Error("no manifest");
+   } catch (e) {
+     status.textContent = "Verbe 'avoir' disponible (mode limité)";
+     return;
+   }
 
-  let manifest = null;
-  try {
-    const res = await fetch("./data/manifest.json", { cache: "no-store" });
-    if (res.ok) manifest = await res.json();
-    if (!manifest) throw new Error("no manifest");
-  } catch (e) {
-    status.textContent = "Verbe 'avoir' disponible (mode limité)";
-    return;
-  }
+   if (manifest.version !== 3) {
+     console.warn("Manifest version mismatch. Expected v3, got:", manifest.version);
+   }
 
-  if (manifest.version !== 3) {
-    console.warn("Manifest version mismatch. Expected v3, got:", manifest.version);
-  }
+   await loadAudioFrenchIndex();
 
-  await loadAudioFrenchIndex();
+   // Display "avoir" immediately - load audio index before
+   const byWord = new Map();
+   const entries = [];
+   const loadedCount = { value: 0 };
+   const byIrr = { "🟡": [], "🟠": [], "🔴": [] };
+   
+   // Track load start time for performance-based decisions
+   let loadStartTime = performance.now();
+   
+   rows.insertAdjacentHTML("beforeend", buildRow(AVOIR_VERB));
+   
+   // Add "avoir" to data structures
+   const avoirForms = collectAllForms(AVOIR_VERB);
+   const avoirFormsNorm = avoirForms.map((x) => normalizeFrench(x));
+   byWord.set("avoir", AVOIR_VERB);
+   entries.push({
+     w: "avoir",
+     norm: normalizeFrench("avoir"),
+     forms: avoirForms,
+     formsNorm: avoirFormsNorm,
+     formsBlob: avoirFormsNorm.join(" "),
+   });
+   byIrr["🔴"].push("avoir");
+   loadedCount.value++;
+   
+   adjustMobileParticiplesLayout();
+   adjustMobileTenseGridLayout();
+   adjustDesktopTenseIpaLayout();
 
-  const meta = manifest.meta || {};
+   status.textContent = "Chargement des verbes…";
+   
+   const meta = manifest.meta || {};
   const repoUrl = meta.repo_url || "";
   const issuesUrl = meta.issues_url || "";
   if (repoLinkEl) {

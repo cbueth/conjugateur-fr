@@ -182,8 +182,22 @@ def is_lemma_candidate(entry: Dict) -> bool:
 
     tags = {t.lower() for t in (entry.get("tags") or []) if isinstance(t, str)}
     raw_tags = {t.lower() for t in (entry.get("raw_tags") or []) if isinstance(t, str)}
+
+    # Common irregular verbs that can be used reflexively but aren't inherently pronominal
+    PRONOMINAL_EXCEPTIONS = {
+        "faire",
+        "aller",
+        "venir",
+        "partir",
+        "sortir",
+        "entrer",
+        "retourner",
+    }
+    is_pronominal_exception = word.strip().lower() in PRONOMINAL_EXCEPTIONS
+
     if "pronominal" in tags or "pronominal" in raw_tags:
-        return False
+        if not is_pronominal_exception:
+            return False
     w = word.strip().lower()
     if w.startswith("se ") or w.startswith("s'") or w.startswith("s'"):
         return False
