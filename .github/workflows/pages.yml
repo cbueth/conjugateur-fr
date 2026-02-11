@@ -24,7 +24,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/astral-sh/uv:latest
+      image: ghcr.io/astral-sh/uv:debian
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout
@@ -70,9 +74,9 @@ jobs:
             exit 1
           fi
           
-          # Verify it looks like a TSV file (has tabs)
-          if ! head -1 "lexique.tsv" | grep -q $'\t'; then
-            echo "Error: Lexique file does not appear to be a valid TSV"
+          # Verify it looks like a TSV file (check for tabs in first 100 bytes)
+          if ! head -c 100 "lexique.tsv" | grep -q $'\t'; then
+            echo "Error: Lexique file does not appear to be a valid TSV (no tabs found)"
             exit 1
           fi
 
