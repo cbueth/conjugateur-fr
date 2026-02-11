@@ -1,0 +1,103 @@
+name: Build and Deploy to GitHub Pages
+
+on:
+  # Monthly schedule: 12:00 CET (11:00 UTC) on the 11th of each month
+  schedule:
+    - cron: '0 11 11 * *'
+  # Push to build branch
+  push:
+    branches: [build]
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/astral-sh/uv:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Kaikki data
+        run: |
+          echo "Downloading French verb data from Kaikki..."
+          curl -L --fail --progress-bar -o "fr-extract.jsonl.gz" \
+            "https://kaikki.org/dictionary/downloads/fr/fr-extract.jsonl.gz"
+          
+          # Verify file was downloaded and is not empty
+          if [ ! -s "fr-extract.jsonl.gz" ]; then
+            echo "Error: Downloaded file is empty or missing"
+            exit 1
+          fi
+          
+          FILE_SIZE=$(stat -c%s "fr-extract.jsonl.gz")
+          echo "Downloaded $FILE_SIZE bytes"
+          
+          if [ "$FILE_SIZE" -lt 1000000 ]; then
+            echo "Error: Downloaded file is too small (< 1MB), likely corrupted"
+            exit 1
+          fi
+
+      - name: Download Lexique frequency data
+        run: |
+          echo "Downloading Lexique frequency data..."
+          curl -L --fail --progress-bar -o "lexique.tsv" \
+            "http://www.lexique.org/databases/Lexique383/Lexique383.tsv"
+          
+          # Verify file was downloaded and is not empty
+          if [ ! -s "lexique.tsv" ]; then
+            echo "Error: Downloaded Lexique file is empty or missing"
+            exit 1
+          fi
+          
+          FILE_SIZE=$(stat -c%s "lexique.tsv")
+          echo "Downloaded $FILE_SIZE bytes"
+          
+          if [ "$FILE_SIZE" -lt 100000 ]; then
+            echo "Error: Downloaded Lexique file is too small (< 100KB), likely corrupted"
+            exit 1
+          fi
+          
+          # Verify it looks like a TSV file (has tabs)
+          if ! head -1 "lexique.tsv" | grep -q $'\t'; then
+            echo "Error: Lexique file does not appear to be a valid TSV"
+            exit 1
+          fi
+
+      - name: Install dependencies and build
+        run: |
+          echo "Installing dependencies..."
+          uv sync
+          
+          echo "Building tiered chunks (200 most common + 2300 common + letter chunks)..."
+          uv run python build_github_pages.py
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './docs'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
