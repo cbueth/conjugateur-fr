@@ -1,8 +1,8 @@
 # Conjugateur FR (table + IPA)
 
 [![Visit Website](https://img.shields.io/badge/Website-cbueth.de%2Fconjugateur--fr-blue?style=for-the-badge)](https://cbueth.de/conjugateur-fr/)
-![Français](https://img.shields.io/badge/Français-French%20Conjugation-blue?style=flat-square)
-![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)
+![Français](https://img.shields.io/badge/Français-French%20Conjugation-blue?style=for-the-badge)
+![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json&style=for-the-badge)
 
 Ce repo génère :
 
