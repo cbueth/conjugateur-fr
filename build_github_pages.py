@@ -195,7 +195,12 @@ def is_lemma_candidate(entry: Dict) -> bool:
     }
     is_pronominal_exception = word.strip().lower() in PRONOMINAL_EXCEPTIONS
 
-    if "pronominal" in tags or "pronominal" in raw_tags:
+    if (
+        "pronominal" in tags
+        or "pronominal" in raw_tags
+        or "reciprocal" in tags
+        or "reciprocal" in raw_tags
+    ):
         if not is_pronominal_exception:
             return False
     w = word.strip().lower()
